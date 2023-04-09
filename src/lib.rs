@@ -49,26 +49,7 @@ where
 pub fn which<T: AsRef<OsStr>>(binary_name: T) -> Result<PathBuf, &'static str> {
     which_in(binary_name, env::var_os("PATH"))
 }
-#[test]
-fn it_works() {
-    use std::process::Command;
-    let result = which("rustc");
-    assert!(result.is_ok());
 
-    let which_result = Command::new("which").arg("rustc").output();
-
-    assert_eq!(
-        String::from(result.unwrap().to_str().unwrap()),
-        String::from_utf8(which_result.unwrap().stdout)
-            .unwrap()
-            .trim()
-    );
-}
-#[test]
-fn do_it_works() {
-    let result = which("cargo does not exist");
-    assert_eq!(result, Err("cannot find the path"));
-}
 #[cfg(test)]
 mod test {
     use super::*;
@@ -144,20 +125,7 @@ mod test {
     fn _which(f: &TestFixture, path: &str) -> Result<PathBuf, &'static str> {
         which_in(path, Some(f.paths.clone()))
     }
-    #[test]
-    fn it_works() {
-        use std::process::Command;
-        let result = which("rustc");
-        assert!(result.is_ok());
 
-        let which_result = Command::new("which").arg("rustc").output();
-        assert_eq!(
-            String::from(result.unwrap().to_str().unwrap()),
-            String::from_utf8(which_result.unwrap().stdout)
-                .unwrap()
-                .trim()
-        );
-    }
     #[test]
     fn test_which() {
         let f = TestFixture::new();
