@@ -92,7 +92,7 @@ mod test {
 
     #[cfg(unix)]
     fn mk_bin(dir: &Path, path: &str) -> io::Result<PathBuf> {
-        use libc;
+        // use libc;
         use std::os::unix::fs::OpenOptionsExt;
         let bin = dir.join(path);
         fs::OpenOptions::new()
@@ -179,6 +179,6 @@ mod test {
     fn test_which_non_executable() {
         let f = TestFixture::new();
         f.touch("b/another").unwrap();
-        assert_eq!(_which(&f, "another").is_err());
+        assert!(_which(&f, "another").is_err());
     }
 }
