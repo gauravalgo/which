@@ -9,7 +9,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-pub fn is_exist(binpath: &Path) -> bool {
+pub fn is_exist(binpath: &PathBuf) -> bool {
     match fs::metadata(binpath).map(|metadata| metadata.is_file()) {
         Ok(true) => true,
         _ => false,
@@ -26,8 +26,7 @@ fn is_executable(path: &Path) -> bool {
 fn is_executable(_path: &Path) -> bool {
     true
 }
-///Find 'binary_name' in the path list 'paths', using 'cwd' to resolve relative paths.
-pub fn which_in<T, U,V>(binary_name: T, paths: Option<U>, cwd: V) -> Result<PathBuf, &'static str>
+pub fn which_in<T, U>(binary_name: T, paths: Option<U>) -> Result<PathBuf, &'static str>
 where
     T: AsRef<OsStr>,
     U: AsRef<OsStr>,
@@ -47,19 +46,8 @@ where
     }
 }
 // change binary name to OsStr
-///if given an absolute path , returns it if file exists and is executable.
-/// if given a relative path , returns an absolute path to the file if
-/// it exists and is executable.
-
-/// if given a string without path seprators, looks for a file named
-/// 'binary_name' at each directory in '$PATH' and if it finds an executable
-/// file there , returns it.
-///
 pub fn which<T: AsRef<OsStr>>(binary_name: T) -> Result<PathBuf, &'static str> {
-    //which_in(binary_name, env::var_os("PATH"))
-    env::current_dir()
-        .or_else(|_| Err("Could n't get curent directory"))
-        .and_then(|cwd| which_in(binary_name, env::var_os("PATH"), &cwd))
+    which_in(binary_name, env::var_os("PATH"))
 }
 
 #[cfg(test)]
