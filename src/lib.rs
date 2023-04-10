@@ -27,7 +27,7 @@ fn is_executable(_path: &Path) -> bool {
     true
 }
 ///Find 'binary_name' in the path list 'paths', using 'cwd' to resolve relative paths.
-pub fn which_in<T, U>(binary_name: T, paths: Option<U>, cwd: V) -> Result<PathBuf, &'static str>
+pub fn which_in<T, U,V>(binary_name: T, paths: Option<U>, cwd: V) -> Result<PathBuf, &'static str>
 where
     T: AsRef<OsStr>,
     U: AsRef<OsStr>,
