@@ -182,8 +182,8 @@ mod test {
     #[cfg(unix)]
     fn test_which_non_executable() {
         let f = TestFixture::new();
-        f.touch("b/another").unwrap();
-        assert!(_which(&f, "another").unwrap().canonicalize().is_err());
+       let b=  f.touch("b/another").unwrap();
+        assert!(_which(&f, &b).is_err());
     }
     #[test]
     fn test_which_absolute(){
