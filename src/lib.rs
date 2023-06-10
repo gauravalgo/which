@@ -26,6 +26,27 @@ fn is_executable(path: &Path) -> bool {
 fn is_executable(_path: &Path) -> bool {
     true
 }
+//like `Path::with_extension` but donot replace an existing extension.
+fn ensure_exe_extension<T: AsRef<Path>>(path: T) -> PathBuf {
+    if env::consts::EXE_EXTENSION.is_empty() {
+        //nothing to do.
+        path.as_ref().to_path_buf()
+    }
+    else {
+        match path.as_ref().extension().map(|e| e == Path::new(env::consts::EXE_EXTENSION)) {
+            //already has the right extension.
+            Some(true) => path.as_ref().to_path_buf(),
+            _ => {
+                //Append the extension
+                let mut s = path.as_ref().to_path_buf().into_os_string();
+                s.push(".");
+                s.push(env::consts::EXE_EXTENSION);
+                PathBuf::from(s)
+            }
+            
+        }
+    }
+}
 ///Find 'binary_name' in the path list 'paths', using 'cwd' to resolve relative paths.
 pub fn which_in<T, U,V>(binary_name: T, paths: Option<U>, cwd: V) -> Result<PathBuf, &'static str>
 where
@@ -34,12 +55,12 @@ where
     V: AsRef<Path>
 {
     //does it have a path seprator ?
-    let path = Path::new(binary_name.as_ref());
+    let path = ensure_exe_extension(binary_name.as_ref());
     if path.components().count() > 1 {
         if path.is_absolute() {
-            if is_exist(path) && is_executable(path){
+            if is_exist(&path) && is_executable(&path){
                 //already fine
-                Ok(PathBuf::from(path))
+                Ok(path)
             }else {
                 //absolute path its not usable
                 Err("bad absolute path")
@@ -50,6 +71,7 @@ where
             
             let mut new_path = PathBuf::from(cwd.as_ref());
             new_path.push(path);
+            let new_path = ensure_exe_extension(new_path);
             if is_exist(&new_path) && is_executable(&new_path){
                 Ok(new_path)
             }
@@ -63,7 +85,7 @@ where
     else {
        //No seprator then look it up in paths
        paths.and_then(|paths| env::split_paths(paths.as_ref())
-       .map(|p| p.join(binary_name.as_ref()))
+       .map(|p| ensure_exe_extension(p.join(binary_name.as_ref())))
        .skip_while(|p| !(is_exist(&p) && is_executable(&p)))
         .next())
         .ok_or("cannot find binary path")
@@ -86,6 +108,18 @@ pub fn which<T: AsRef<OsStr>>(binary_name: T) -> Result<PathBuf, &'static str> {
         .and_then(|cwd| which_in(binary_name, env::var_os("PATH"), &cwd))
 }
 
+#[test]
+fn test_exe_extension(){
+    let expected = PathBuf::from("foo").with_extension(env::consts::EXE_EXTENSION);
+    assert_eq!(expected,ensure_exe_extension(PathBuf::from("foo")));
+    let p = expected.clone();
+    assert_eq!(expected,ensure_exe_extension(p));
+}
+#[test]
+#[cfg(windows)]
+fn test_exe_extension_existing_extension() {
+    assert_eq!(PathBuf::from("foo.bar.exe"),ensure_exe_extension("foo.bar"));
+}
 #[cfg(test)]
 mod test {
     use super::*;
@@ -111,7 +145,7 @@ mod test {
     fn mk_bin(dir: &Path, path: &str) -> io::Result<PathBuf> {
         // use libc;
         use std::os::unix::fs::OpenOptionsExt;
-        let bin = dir.join(path);
+        let bin = dir.join(path).with_extension(env::consts::EXE_EXTENSION);
         fs::OpenOptions::new()
             .write(true)
             .create(true)
@@ -121,7 +155,7 @@ mod test {
     }
 
     fn touch(dir: &Path, path: &str) -> io::Result<PathBuf> {
-        let b = dir.join(path);
+        let b = dir.join(path).with_extension(env::consts::EXE_EXTENSION);
         fs::File::create(&b).and_then(|_f| b.canonicalize())
     }
 
@@ -161,11 +195,32 @@ mod test {
     fn _which<T: AsRef<OsStr>>(f: &TestFixture, path: T) -> Result<PathBuf, &'static str> {
         which_in(path, Some(f.paths.clone()),f.tempdir.path())
     }
+    
+    #[test]
+    #[cfg(unix)]
+    fn it_works(){
+        use std::process::Command;
+        let result = which("rustc");
+        assert!(result.is_ok());
 
+        let which_result = Command::new("which")
+            .arg("rustc")
+            .output();
+
+        assert_eq!(String::from(result.unwrap().to_str().unwrap()),
+        String::from_utf8(which_result.unwrap().stdout).unwrap().trim());
+    }
     #[test]
     fn test_which() {
         let f = TestFixture::new();
         assert_eq!(_which(&f, &BIN_NAME).unwrap().canonicalize().unwrap(), f.bins[0])
+    }
+
+    #[test]
+    fn test_which_extension() {
+        let f = TestFixture::new();
+        let b = Path::new(&BIN_NAME).with_extension(env::consts::EXE_EXTENSION);
+        assert_eq!(_which(&f, &b).unwrap().canonicalize().unwrap(),f.bins[0])
     }
     #[test]
     fn test_which_not_found() {
@@ -189,6 +244,13 @@ mod test {
     fn test_which_absolute(){
         let f = TestFixture::new();
         assert_eq!(_which(&f, &f.bins[1]).unwrap().canonicalize().unwrap(),f.bins[1].canonicalize().unwrap());
+    }
+    #[test]
+    fn test_which_absolute_extension(){
+        let f = TestFixture::new();
+        //Don`t append EXE_EXTENSION here`
+        let b = f.bins[1].parent().unwrap().join(&BIN_NAME);
+        assert_eq!(_which(&f, &b).unwrap().canonicalize().unwrap(),f.bins[1].canonicalize().unwrap());
     }
     #[test]
     fn test_which_relative() {
